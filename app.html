@@ -1,0 +1,662 @@
+<title>Pocket Time Buddy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one-screen phone app. Hours run down, cities run across; home column and city header stay pinned while the grid scrolls. */
+:root {
+  --paper: #F4F6F9;
+  --surface: #FFFFFF;
+  --ink: #142030;
+  --muted: #566476;
+  --line: #D9E0E9;
+  --night: #22304D;  --night-ink: #C7D2E6;
+  --edge:  #F4E4C6;  --edge-ink:  #5A4020;
+  --work:  #E3F0FB;  --work-ink:  #142030;
+  --accent: #E2560B;
+  --accent-ink: #FFFFFF;
+  --font-ui: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-num: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --col: 86px;
+  --row: 46px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0D131C; --surface: #151D29; --ink: #E5EBF2; --muted: #8E9BAD; --line: #263142;
+    --night: #080C14; --night-ink: #7183A0;
+    --edge: #3B2E1B;  --edge-ink: #EBCB97;
+    --work: #1A2B40;  --work-ink: #E5EBF2;
+    --accent: #FF7B34; --accent-ink: #1A0C03;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0D131C; --surface: #151D29; --ink: #E5EBF2; --muted: #8E9BAD; --line: #263142;
+  --night: #080C14; --night-ink: #7183A0;
+  --edge: #3B2E1B;  --edge-ink: #EBCB97;
+  --work: #1A2B40;  --work-ink: #E5EBF2;
+  --accent: #FF7B34; --accent-ink: #1A0C03;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--paper); color: var(--ink);
+  font: 15px/1.4 var(--font-ui);
+  -webkit-tap-highlight-color: transparent;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { height: 100%; display: flex; flex-direction: column; max-width: 960px; margin: 0 auto; }
+
+/* Top bar */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px 10px; }
+.brand { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; margin-right: auto; }
+.datenav { display: flex; align-items: center; gap: 6px; flex-basis: 100%; }
+#date { flex: 1; min-width: 0; }
+.iconbtn {
+  width: 40px; height: 40px; display: grid; place-items: center;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
+}
+.iconbtn svg { width: 18px; height: 18px; }
+#date {
+  height: 40px; padding: 0 8px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); font-family: var(--font-num); font-size: 14px;
+}
+.pill {
+  height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--surface); font-weight: 500;
+}
+.seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.seg button { height: 38px; min-width: 48px; padding: 0 12px; border: 0; background: none; font-family: var(--font-num); font-size: 13px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+/* Grid */
+.scroller { flex: 1; overflow: auto; overscroll-behavior: contain; border-top: 1px solid var(--line); }
+.grid { min-width: max-content; }
+.row {
+  display: grid; grid-template-columns: repeat(var(--n), minmax(var(--col), 1fr));
+  width: 100%; border: 0; padding: 0; background: none; text-align: center;
+}
+.head { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 1px solid var(--line); }
+.hc {
+  padding: 10px 6px 8px; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  background: var(--paper); border: 0; min-width: 0;
+}
+.hc .name {
+  font-size: 13px; font-weight: 500; max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 3px;
+}
+.hc .name svg { width: 12px; height: 12px; flex: none; color: var(--accent); }
+.hc .big { font-family: var(--font-num); font-size: 21px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hc .big small { font-size: 12px; margin-left: 1px; }
+.hc .meta { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.sticky-l { position: sticky; left: 0; z-index: 2; }
+.head .sticky-l { z-index: 6; box-shadow: 1px 0 0 var(--line); }
+
+.cell {
+  height: var(--row); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: var(--font-num); font-size: 15px; font-variant-numeric: tabular-nums; line-height: 1.1;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+.cell small { font-size: 10.5px; opacity: .75; }
+.cell.night { background: var(--night); color: var(--night-ink); }
+.cell.edge  { background: var(--edge);  color: var(--edge-ink); }
+.cell.work  { background: var(--work);  color: var(--work-ink); }
+.cell.day   { background: var(--surface); color: var(--ink); }
+.cell.mid { font-family: var(--font-ui); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.cell.mid span { font-family: var(--font-num); font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.row .sticky-l { box-shadow: 1px 0 0 var(--line); }
+/* Cities off the default city's hour grid (e.g. +5:45) are drawn as a shifted column over blank cells,
+   so their cells start at real hour boundaries. Flex weights are minutes. */
+.shiftcol { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; pointer-events: none; z-index: 1; }
+.shiftcol .cell { height: auto; min-height: 0; flex: var(--w) 1 0; overflow: hidden; }
+.shiftcol .cell.newday { position: relative; }
+.cell.gap { background: var(--paper); }
+/* Midnight line: drawn where the city's new day starts, mid-row for :30 / :45 offsets. */
+.cell.newday:not(.sticky-l) { position: relative; }
+.cell.newday::before {
+  content: ""; position: absolute; left: 0; right: 0; top: var(--mid, 0%); height: 3px; margin-top: -1px;
+  background: var(--night-ink); pointer-events: none;
+}
+
+.hc .till { font-family: var(--font-num); font-size: 12.5px; color: var(--muted); }
+.hc .till small { font-size: 10px; }
+.hours { position: relative; }
+.hours .row { position: relative; }
+/* Selected interval: a band over all cities, resized by its two grips in 15-minute steps. */
+.selband {
+  position: absolute; left: 0; right: 0; z-index: 3; pointer-events: none; box-sizing: border-box;
+  border: 2px solid var(--accent); border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.grip {
+  position: absolute; left: 0; right: 0; height: 30px; padding: 0; border: 0; background: none;
+  pointer-events: auto; touch-action: none; cursor: ns-resize;
+}
+.grip.top { top: -16px; }
+.grip.bot { bottom: -16px; }
+.grip span {
+  position: sticky; left: 0; width: min(100%, var(--vw, 100%)); height: 100%;
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; box-sizing: border-box;
+}
+.grip span::before {
+  content: ""; width: 28px; height: 10px; border-radius: 5px;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--surface);
+}
+.grip:focus-visible { outline: none; }
+.grip:focus-visible span::before { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.hours .row[aria-pressed="true"] .cell { font-weight: 500; }
+.hours .row.now .sticky-l::before {
+  content: "NOW"; position: absolute; left: 4px; top: 4px;
+  font: 700 8.5px/1 var(--font-ui); letter-spacing: .08em;
+  background: var(--accent); color: var(--accent-ink); padding: 2px 3px; border-radius: 3px;
+}
+.hours .sticky-l { position: sticky; }
+
+/* Bottom bar */
+.bar { display: flex; gap: 6px; padding: 10px 16px 12px; background: var(--paper); }
+.bar button { flex: 1; min-width: 0; height: 48px; white-space: nowrap; border-radius: 12px; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 6px; }
+.bar svg { width: 18px; height: 18px; flex: none; }
+.primary { background: var(--ink); color: var(--paper); border: 0; }
+.secondary { background: var(--surface); border: 1px solid var(--line); }
+
+.summary {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 10px 16px 0;
+  border-top: 1px solid var(--line); background: var(--paper);
+}
+.summary .range { font-family: var(--font-num); font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.summary .range small { font-size: 11px; }
+.summary .dur { font-weight: 700; color: var(--accent); }
+.summary .where { color: var(--muted); font-size: 13px; }
+.legend { display: flex; gap: 12px; padding: 0 16px 8px; font-size: 11.5px; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--line); }
+
+/* Sheets */
+dialog {
+  border: 0; padding: 0; width: min(560px, 100%); max-width: 100%; max-height: 85%;
+  margin: auto auto 0; border-radius: 18px 18px 0 0;
+  background: var(--surface); color: var(--ink);
+}
+@media (min-width: 640px) { dialog { margin: auto; border-radius: 18px; } }
+dialog::backdrop { background: rgb(8 12 20 / .45); }
+.sheet { display: flex; flex-direction: column; gap: 12px; padding: 18px 16px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 80vh; }
+.sheet h2 { margin: 0; font-size: 17px; text-wrap: balance; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#q {
+  height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); font-size: 16px;
+}
+#results { list-style: none; margin: 0; padding: 0; overflow: auto; display: flex; flex-direction: column; }
+#results button {
+  width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; padding: 6px 4px;
+}
+#results .r-name { font-weight: 500; }
+#results .r-tz { font-size: 12px; color: var(--muted); }
+#results .r-time { font-family: var(--font-num); font-size: 14px; color: var(--muted); white-space: nowrap; }
+.empty { color: var(--muted); padding: 12px 4px; }
+.hint { margin: 0; font-size: 13px; color: var(--muted); }
+.credit { font-size: 11.5px; }
+.credit a { color: inherit; }
+#cityList { list-style: none; margin: 0; padding: 0; overflow: auto; }
+#cityList li { display: flex; align-items: center; gap: 8px; min-height: 60px; border-bottom: 1px solid var(--line); }
+#cityList .c-info { flex: 1; min-width: 0; }
+#cityList .c-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#cityList .c-meta { font-size: 12px; color: var(--muted); font-family: var(--font-num); }
+.tag { height: 36px; padding: 0 12px; border-radius: 18px; font-size: 13px; font-weight: 500; white-space: nowrap;
+  border: 1px solid var(--line); background: var(--surface); display: flex; align-items: center; gap: 4px; }
+.tag svg { width: 14px; height: 14px; }
+.tag.is-default { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); cursor: default; }
+.danger { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; background: none; border: 1px solid var(--line); color: #C2410C; }
+.danger svg { width: 18px; height: 18px; }
+.danger:disabled { opacity: .35; cursor: not-allowed; }
+.big-btn { height: 48px; border-radius: 12px; font-weight: 700; }
+:root[data-theme="dark"] .danger { color: #FF9A6B; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .danger { color: #FF9A6B; } }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 10px; font-weight: 500;
+  max-width: calc(100% - 32px); z-index: 10; text-align: center;
+}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">Pocket Time Buddy</div>
+    <div class="seg" role="group" aria-label="Clock format">
+      <button id="f12" aria-pressed="false">12h</button>
+      <button id="f24" aria-pressed="true">24h</button>
+    </div>
+    <div class="datenav">
+      <button class="iconbtn" id="prev" aria-label="Previous day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <input type="date" id="date" aria-label="Date in default city">
+      <button class="iconbtn" id="next" aria-label="Next day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="pill" id="now">Now</button>
+    </div>
+  </header>
+  <div class="legend" aria-hidden="true">
+    <span><i style="background:var(--work)"></i>8–18 work</span>
+    <span><i style="background:var(--edge)"></i>early / evening</span>
+    <span><i style="background:var(--night)"></i>night</span>
+  </div>
+  <div class="scroller" id="scroller">
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="summary" id="summary" aria-live="polite"></div>
+  <div class="bar">
+    <button class="secondary" id="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button>
+    <button class="secondary" id="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Link</button>
+    <button class="secondary" id="manage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Cities</button>
+    <button class="primary" id="add" aria-label="Add city"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add</button>
+  </div>
+</div>
+
+<dialog id="addDlg" aria-labelledby="addTitle">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="addTitle">Add a city</h2>
+      <button class="iconbtn" id="addClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <input id="q" type="search" placeholder="City or time zone, e.g. Bangalore" autocomplete="off" aria-label="Search cities">
+    <ul id="results"></ul>
+    <p class="hint credit">City data: <a href="https://www.geonames.org/">GeoNames</a>, CC BY 4.0</p>
+  </div>
+</dialog>
+
+<dialog id="cityDlg" aria-labelledby="cityTitle">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="cityTitle">Your cities</h2>
+      <button class="iconbtn" id="cityClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <p class="hint">The default city is the left column and sets the day you browse.</p>
+    <ul id="cityList"></ul>
+    <button class="primary big-btn" id="addFromList">Add city</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const HOUR = 3600000;
+const HOME_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z"/></svg>';
+// Cities with 300k+ people plus all capitals (GeoNames, CC BY 4.0), biggest first,
+// as "name|country code|zone index"; the last few are common alternative names.
+const CITY_ZONES = ["Africa/Abidjan", "Africa/Accra", "Africa/Addis_Ababa", "Africa/Algiers", "Africa/Asmara", "Africa/Bamako", "Africa/Bangui", "Africa/Banjul", "Africa/Bissau", "Africa/Blantyre", "Africa/Brazzaville", "Africa/Bujumbura", "Africa/Cairo", "Africa/Casablanca", "Africa/Conakry", "Africa/Dakar", "Africa/Dar_es_Salaam", "Africa/Djibouti", "Africa/Douala", "Africa/Freetown", "Africa/Gaborone", "Africa/Harare", "Africa/Johannesburg", "Africa/Juba", "Africa/Kampala", "Africa/Khartoum", "Africa/Kigali", "Africa/Kinshasa", "Africa/Lagos", "Africa/Libreville", "Africa/Lome", "Africa/Luanda", "Africa/Lubumbashi", "Africa/Lusaka", "Africa/Malabo", "Africa/Maputo", "Africa/Maseru", "Africa/Mbabane", "Africa/Mogadishu", "Africa/Monrovia", "Africa/Nairobi", "Africa/Ndjamena", "Africa/Niamey", "Africa/Nouakchott", "Africa/Ouagadougou", "Africa/Porto-Novo", "Africa/Sao_Tome", "Africa/Tripoli", "Africa/Tunis", "Africa/Windhoek", "America/Anguilla", "America/Antigua", "America/Araguaina", "America/Argentina/Buenos_Aires", "America/Argentina/Cordoba", "America/Argentina/Salta", "America/Argentina/Tucuman", "America/Aruba", "America/Asuncion", "America/Bahia", "America/Barbados", "America/Belem", "America/Belize", "America/Boa_Vista", "America/Bogota", "America/Campo_Grande", "America/Cancun", "America/Caracas", "America/Cayenne", "America/Cayman", "America/Chicago", "America/Chihuahua", "America/Ciudad_Juarez", "America/Costa_Rica", "America/Cuiaba", "America/Curacao", "America/Denver", "America/Detroit", "America/Dominica", "America/Edmonton", "America/El_Salvador", "America/Fortaleza", "America/Grand_Turk", "America/Grenada", "America/Guadeloupe", "America/Guatemala", "America/Guayaquil", "America/Guyana", "America/Halifax", "America/Havana", "America/Hermosillo", "America/Indiana/Indianapolis", "America/Jamaica", "America/Kentucky/Louisville", "America/Kralendijk", "America/La_Paz", "America/Lima", "America/Los_Angeles", "America/Lower_Princes", "America/Maceio", "America/Managua", "America/Manaus", "America/Marigot", "America/Martinique", "America/Matamoros", "America/Mazatlan", "America/Merida", "America/Mexico_City", "America/Miquelon", "America/Monterrey", "America/Montevideo", "America/Montserrat", "America/Nassau", "America/New_York", "America/Nuuk", "America/Panama", "America/Paramaribo", "America/Phoenix", "America/Port-au-Prince", "America/Port_of_Spain", "America/Porto_Velho", "America/Puerto_Rico", "America/Recife", "America/Rio_Branco", "America/Santarem", "America/Santiago", "America/Santo_Domingo", "America/Sao_Paulo", "America/St_Barthelemy", "America/St_Kitts", "America/St_Lucia", "America/St_Thomas", "America/St_Vincent", "America/Tegucigalpa", "America/Tijuana", "America/Toronto", "America/Tortola", "America/Vancouver", "America/Winnipeg", "Arctic/Longyearbyen", "Asia/Aden", "Asia/Almaty", "Asia/Amman", "Asia/Aqtobe", "Asia/Ashgabat", "Asia/Baghdad", "Asia/Bahrain", "Asia/Baku", "Asia/Bangkok", "Asia/Barnaul", "Asia/Beirut", "Asia/Bishkek", "Asia/Brunei", "Asia/Chita", "Asia/Colombo", "Asia/Damascus", "Asia/Dhaka", "Asia/Dili", "Asia/Dubai", "Asia/Dushanbe", "Asia/Gaza", "Asia/Hebron", "Asia/Ho_Chi_Minh", "Asia/Hong_Kong", "Asia/Irkutsk", "Asia/Jakarta", "Asia/Jayapura", "Asia/Jerusalem", "Asia/Kabul", "Asia/Karachi", "Asia/Kathmandu", "Asia/Kolkata", "Asia/Krasnoyarsk", "Asia/Kuala_Lumpur", "Asia/Kuching", "Asia/Kuwait", "Asia/Macau", "Asia/Makassar", "Asia/Manila", "Asia/Muscat", "Asia/Nicosia", "Asia/Novokuznetsk", "Asia/Novosibirsk", "Asia/Omsk", "Asia/Oral", "Asia/Phnom_Penh", "Asia/Pontianak", "Asia/Pyongyang", "Asia/Qatar", "Asia/Qyzylorda", "Asia/Riyadh", "Asia/Samarkand", "Asia/Seoul", "Asia/Shanghai", "Asia/Singapore", "Asia/Taipei", "Asia/Tashkent", "Asia/Tbilisi", "Asia/Tehran", "Asia/Thimphu", "Asia/Tokyo", "Asia/Tomsk", "Asia/Ulaanbaatar", "Asia/Urumqi", "Asia/Vientiane", "Asia/Vladivostok", "Asia/Yangon", "Asia/Yekaterinburg", "Asia/Yerevan", "Atlantic/Bermuda", "Atlantic/Canary", "Atlantic/Cape_Verde", "Atlantic/Faroe", "Atlantic/Reykjavik", "Atlantic/South_Georgia", "Atlantic/St_Helena", "Atlantic/Stanley", "Australia/Adelaide", "Australia/Brisbane", "Australia/Melbourne", "Australia/Perth", "Australia/Sydney", "Europe/Amsterdam", "Europe/Andorra", "Europe/Astrakhan", "Europe/Athens", "Europe/Belgrade", "Europe/Berlin", "Europe/Bratislava", "Europe/Brussels", "Europe/Bucharest", "Europe/Budapest", "Europe/Chisinau", "Europe/Copenhagen", "Europe/Dublin", "Europe/Gibraltar", "Europe/Guernsey", "Europe/Helsinki", "Europe/Isle_of_Man", "Europe/Istanbul", "Europe/Jersey", "Europe/Kaliningrad", "Europe/Kirov", "Europe/Kyiv", "Europe/Lisbon", "Europe/Ljubljana", "Europe/London", "Europe/Luxembourg", "Europe/Madrid", "Europe/Malta", "Europe/Mariehamn", "Europe/Minsk", "Europe/Monaco", "Europe/Moscow", "Europe/Oslo", "Europe/Paris", "Europe/Podgorica", "Europe/Prague", "Europe/Riga", "Europe/Rome", "Europe/Samara", "Europe/San_Marino", "Europe/Sarajevo", "Europe/Saratov", "Europe/Simferopol", "Europe/Skopje", "Europe/Sofia", "Europe/Stockholm", "Europe/Tallinn", "Europe/Tirane", "Europe/Ulyanovsk", "Europe/Vaduz", "Europe/Vatican", "Europe/Vienna", "Europe/Vilnius", "Europe/Volgograd", "Europe/Warsaw", "Europe/Zagreb", "Europe/Zurich", "Indian/Antananarivo", "Indian/Christmas", "Indian/Cocos", "Indian/Comoro", "Indian/Kerguelen", "Indian/Mahe", "Indian/Maldives", "Indian/Mauritius", "Indian/Mayotte", "Indian/Reunion", "Pacific/Apia", "Pacific/Auckland", "Pacific/Efate", "Pacific/Fiji", "Pacific/Funafuti", "Pacific/Guadalcanal", "Pacific/Guam", "Pacific/Honolulu", "Pacific/Majuro", "Pacific/Nauru", "Pacific/Niue", "Pacific/Norfolk", "Pacific/Noumea", "Pacific/Pago_Pago", "Pacific/Palau", "Pacific/Pitcairn", "Pacific/Pohnpei", "Pacific/Port_Moresby", "Pacific/Rarotonga", "Pacific/Saipan", "Pacific/Tahiti", "Pacific/Tarawa", "Pacific/Tongatapu", "Pacific/Wallis"];
+const CITY_DATA = "Shanghai|CN|193;Chongqing|CN|193;Chengdu|CN|193;Beijing|CN|193;Guangzhou|CN|193;Shenzhen|CN|193;Kinshasa|CD|27;Istanbul|TR|239;Lagos|NG|28;Ho Chi Minh City|VN|162;Tianjin|CN|193;Wuhan|CN|193;Lahore|PK|169;Xi’an|CN|193;Mumbai|IN|171;São Paulo|BR|127;Mexico City|MX|107;Hangzhou|CN|193;Karachi|PK|169;Delhi|IN|171;Moscow|RU|253;Dhaka|BD|156;Seoul|KR|192;Harbin|CN|193;Tokyo|JP|200;Dongguan|CN|193;Cairo|EG|12;Hefei|CN|193;Johannesburg|ZA|22;Weifang|CN|193;Nanjing|CN|193;Shenyang|CN|193;Foshan|CN|193;London|GB|246;New York City|US|113;Jakarta|ID|165;Bengaluru|IN|171;Jinan|CN|193;Hanoi|VN|148;Taipei|TW|195;Lima|PE|96;Bogotá|CO|64;Dalian|CN|193;Hong Kong|HK|163;Baghdad|IQ|145;Wuzhong|CN|193;Qingdao|CN|193;Tehran|IR|198;Yantai|CN|193;Hyderabad|IN|171;Rio de Janeiro|BR|127;Suzhou|CN|193;Puxi|CN|193;Zhengzhou|CN|193;Ahmedabad|IN|171;Abidjan|CI|0;Nanning|CN|193;Kunming|CN|193;Shijiazhuang|CN|193;Changchun|CN|193;Pudong|CN|193;Sydney|AU|221;Singapore|SG|194;Melbourne|AU|219;Dar es Salaam|TZ|16;Saint Petersburg|RU|253;Taiyuan|CN|193;Alexandria|EG|12;Bangkok|TH|148;Kano|NG|28;Santiago|CL|125;Cape Town|ZA|22;Peshawar|PK|169;Zibo|CN|193;Jeddah|SA|190;Chennai|IN|171;Kolkata|IN|171;Xiamen|CN|193;Surat|IN|171;Yangzhou|CN|193;Huai'an|CN|193;Guiyang|CN|193;Yangon|MM|206;Bao'an|CN|193;Kabul|AF|168;Nairobi|KE|40;Wuxi|CN|193;Giza|EG|12;Lanzhou|CN|193;Bamako|ML|5;Riyadh|SA|190;Fuzhou|CN|193;Ürümqi|CN|203;New Taipei City|TW|195;New Territories|HK|163;Chattogram|BD|156;Addis Ababa|ET|2;Zaozhuang|CN|193;Zhongshan|CN|193;Shantou|CN|193;Los Angeles|US|97;Faisalabad|PK|169;Dubai|AE|158;Yokohama|JP|200;Ningbo|CN|193;Nanhai|CN|193;Casablanca|MA|13;Ibadan|NG|28;Puyang|CN|193;Ankara|TR|239;Shiyan|CN|193;Hohhot|CN|193;Berlin|DE|227;Tangshan|CN|193;Rawalpindi|PK|169;Lüliang|CN|193;Durban|ZA|22;Anshan|CN|193;Changzhou|CN|193;Busan|KR|192;Madrid|ES|248;Pyongyang|KP|187;Pune|IN|171;Datong|CN|193;Bursa|TR|239;Changsha|CN|193;Quezon City|PH|178;Jaipur|IN|171;Huainan|CN|193;Surabaya|ID|165;Incheon|KR|192;Haikou|CN|193;Caracas|VE|67;Kyiv|UA|243;İzmir|TR|239;Huizhou|CN|193;Buenos Aires|AR|53;Yinchuan|CN|193;Taichung|TW|195;Kanpur|IN|171;Toronto|CA|135;Quito|EC|86;Brisbane|AU|218;Luanda|AO|31;Baotou|CN|193;Osaka|JP|200;Linyi|CN|193;Baoding|CN|193;Kaohsiung|TW|195;Brooklyn|US|113;Guayaquil|EC|86;Belo Horizonte|BR|127;Minhang|CN|193;Bazhong|CN|193;Salvador|BR|59;Abuja|NG|28;Gazipur|BD|156;Chicago|US|70;Wenzhou|CN|193;Bekasi|ID|165;Dakar|SN|15;Haiphong|VN|148;Yunfu|CN|193;Navi Mumbai|IN|171;Mogadishu|SO|38;Kumasi|GH|1;Bandung|ID|165;Gujranwala|PK|169;Medan|ID|165;Lucknow|IN|171;Xining|CN|193;Ouagadougou|BF|44;Nagpur|IN|171;Fortaleza|BR|81;Cali|CO|64;Perth|AU|220;Daegu|KR|192;Algiers|DZ|3;Nanchang|CN|193;Baku|AZ|147;Nagoya|JP|200;Rome|IT|259;Queens|US|113;Houston|US|70;Mashhad|IR|198;Shaoxing|CN|193;Nantong|CN|193;Baoshan|CN|193;Kowloon|HK|163;Gaziantep|TR|239;Lubumbashi|CD|32;Manaus|BR|101;Lusaka|ZM|33;Brasília|BR|127;Zhuhai|CN|193;Santo Domingo|DO|126;Lomé|TG|30;Multan|PK|169;Havana|CU|89;Depok|ID|165;Ordos|CN|193;Paris|FR|255;Coimbatore|IN|171;Qingyang|CN|193;Port Harcourt|NG|28;Pretoria|ZA|22;Córdoba|AR|54;Mbuji-Mayi|CD|32;Aleppo|SY|155;Kunshan|CN|193;Al Mawşil al Jadīdah|IQ|145;Zunyi|CN|193;La Paz|BO|95;Lianyungang|CN|193;Medellín|CO|64;Puning|CN|193;Indore|IN|171;Brazzaville|CG|10;Tashkent|UZ|196;Ganzhou|CN|193;Almaty|KZ|141;Khartoum|SD|25;Hamburg|DE|227;Sapporo|JP|200;Songjiang|CN|193;Accra|GH|1;Curitiba|BR|127;Sanaa|YE|140;Conakry|GN|14;Tangerang|ID|165;Tijuana|MX|134;Hyderabad|PK|169;Beirut|LB|150;Jieyang|CN|193;Jilin|CN|193;Jiading|CN|193;Bucharest|RO|230;Camayenne|GN|14;Kakamega|KE|40;Shangqiu|CN|193;Nanchong|CN|193;Tainan|TW|195;Kaduna|NG|28;Omdurman|SD|25;Davao|PH|178;Thāne|IN|171;Iztapalapa|MX|107;Diyarbakır|TR|239;Santa Cruz de la Sierra|BO|95;Vadodara|IN|171;Adana|TR|239;Nanyang|CN|193;Abu Dhabi|AE|158;Palembang|ID|165;Sharjah|AE|158;Bhopal|IN|171;Jiangmen|CN|193;Benin City|NG|28;Jiangyin|CN|193;Fuyang|CN|193;Montréal|CA|135;Bayan Nur|CN|193;Chengtangcun|CN|193;Maracaibo|VE|67;Chaozhou|CN|193;Minsk|BY|251;Budapest|HU|231;Qingyuan|CN|193;Tai’an|CN|193;Rasapūdipalem|IN|171;Pimpri-Chinchwad|IN|171;Caloocan|PH|178;Warsaw|PL|276;Soweto|ZA|22;Semarang|ID|165;Puebla|MX|107;Vienna|AT|273;Barcelona|ES|248;Patna|IN|171;Mosul|IQ|145;Kallakurichi|IN|171;Kampala|UG|24;Changshu|CN|193;Rabat|MA|13;Recife|BR|122;Phoenix|US|117;Ecatepec de Morelos|MX|107;Lu’an|CN|193;Valencia|VE|67;Ludhiana|IN|171;Yancheng|CN|193;Novosibirsk|RU|182;Erbil|IQ|145;Fukuoka|JP|200;Taizhou|CN|193;Daqing|CN|193;Kisangani|CD|32;Manila|PH|178;Wuhu|CN|193;Santiago de Querétaro|MX|107;Dazhou|CN|193;León de los Aldama|MX|107;Makkah|SA|190;Philadelphia|US|113;Phnom Penh|KH|185;Guilin|CN|193;Damascus|SY|155;Quetta|PK|169;Zhaoqing|CN|193;Onitsha|NG|28;Mianyang|CN|193;Auckland|NZ|290;Isfahan|IR|198;Wanzhou|CN|193;Astana|KZ|141;Harare|ZW|21;Monrovia|LR|39;Putian|CN|193;Kawasaki|JP|200;Goiânia|BR|127;San Antonio|US|70;Kobe|JP|200;Jinzhou|CN|193;Stockholm|SE|267;Ciudad Juárez|MX|72;Cần Thơ|VN|162;Munich|DE|227;Khulna|BD|156;Belém|BR|61;Yekaterinburg|RU|207;Porto Alegre|BR|127;Manhattan|US|113;Nashik|IN|171;Asunción|PY|58;Yiwu|CN|193;Zapopan|MX|107;Makassar|ID|177;Adelaide|AU|217;Quanzhou|CN|193;Madurai|IN|171;Jinhua|CN|193;Kyoto|JP|200;Cixi|CN|193;Changde|CN|193;Kuala Lumpur|MY|173;Kayseri|TR|239;Kaifeng|CN|193;Karaj|IR|198;Kathmandu|NP|170;Daejeon|KR|192;Baoji|CN|193;Suqian|CN|193;Liuzhou|CN|193;Tirunelveli|IN|171;Konya|TR|239;Zhangjiagang|CN|193;Agra|IN|171;South Tangerang|ID|165;Tabriz|IR|198;Kharkiv|UA|243;Xinyang|CN|193;Jinjiang|CN|193;Faridabad|IN|171;Bozhou|CN|193;Qujing|CN|193;San Diego|US|97;Gwangju|KR|192;Zhanjiang|CN|193;Fushun|CN|193;Rājkot|IN|171;Luoyang|CN|193;Guadalajara|MX|107;The Bronx|US|113;Guankou|CN|193;Huế|VN|148;Milan|IT|259;Najafgarh|IN|171;Lianjiang|CN|193;N'Djamena|TD|41;Handan|CN|193;Bannu|PK|169;Yichang|CN|193;Antananarivo|MG|279;Heze|CN|193;Guarulhos|BR|127;Abobo|CI|0;Jamshedpur|IN|171;Douala|CM|18;Antalya|TR|239;Basrah|IQ|145;Dallas|US|70;Saitama|JP|200;Niamey|NE|42;Liupanshui|CN|193;Taguig|PH|178;Maoming|CN|193;Calgary|CA|79;Tripoli|LY|47;Madinah|SA|190;Yaoundé|CM|18;Batam|ID|165;Qinzhou|CN|193;Luohe|CN|193;Xiangyang|CN|193;Yangjiang|CN|193;Yixing|CN|193;Pimpri|IN|171;Da Nang|VN|162;Amman|JO|142;Budta|PH|178;Belgrade|RS|226;Biên Hòa|VN|162;Kananga|CD|32;Qingpu|CN|193;Montevideo|UY|110;Xuchang|CN|193;Kalyān|IN|171;Zigong|CN|193;Nizhniy Novgorod|RU|253;Jepara|ID|165;Maputo|MZ|35;Xuzhou|CN|193;Dammam|SA|190;Ra’s Bayrūt|LB|150;Neijiang|CN|193;Shiraz|IR|198;Heshan|CN|193;Dombivali|IN|171;Kazan|RU|253;Jining|CN|193;Barquisimeto|VE|67;Shubrā al Khaymah|EG|12;Putuo|CN|193;Port-au-Prince|HT|118;Suwon|KR|192;Liaocheng|CN|193;Jinzhong|CN|193;Callao|PE|96;Meerut|IN|171;Virār|IN|171;Nowrangapur|IN|171;Karbala|IQ|145;Changzhi|CN|193;Tianshui|CN|193;Sadr City|IQ|145;Yangpu|CN|193;Mombasa|KE|40;Mandalay|MM|206;Srinagar|IN|171;Barranquilla|CO|64;Chelyabinsk|RU|207;Mérida|MX|106;Hiroshima|JP|200;Santiago de los Caballeros|DO|126;Shymkent|KZ|141;Weinan|CN|193;Ghāziābād|IN|171;Matola|MZ|35;Dhanbad|IN|171;Arequipa|PE|96;Hong Kong Island|HK|163;Fes|MA|13;Gustavo Adolfo Madero|MX|107;Nouakchott|MR|43;Jiaxing|CN|193;Aurangabad|IN|171;Zhongwei|CN|193;Omsk|RU|183;Pikine|SN|15;Pekanbaru|ID|165;Panjin|CN|193;Bandar Lampung|ID|165;Prague|CZ|257;Varanasi|IN|171;Jiujiang|CN|193;Samara|RU|260;Aba|NG|28;Amritsar|IN|171;Birmingham|GB|246;Copenhagen|DK|233;Sofia|BG|266;Anyang|CN|193;Yerevan|AM|208;Luohu District|CN|193;Vijayawada|IN|171;Fengxiang|CN|193;Bijie|CN|193;Monterrey|MX|109;Kigali|RW|26;Rostov-on-Don|RU|253;Zhuzhou|CN|193;Rui’an|CN|193;Malingao|PH|178;Touba|SN|15;Ufa|RU|207;Ranchi|IN|171;Zoucheng|CN|193;Shangrao|CN|193;Lilongwe|MW|9;Huaibei|CN|193;Maiduguri|NG|28;Xuhui|CN|193;Meishan|CN|193;Mwanza|TZ|16;Wuchang|CN|193;Ulsan|KR|192;Sendai|JP|200;Krasnoyarsk|RU|172;Guigang|CN|193;Oslo|NO|254;Jabalpur|IN|171;Ilorin|NG|28;Aden|YE|140;Bogor|ID|165;Ciudad Nezahualcoyotl|MX|107;Hengyang|CN|193;Prayagraj|IN|171;Trujillo|PE|96;Visakhapatnam|IN|171;Goyang-si|KR|192;Yulin|CN|193;Jodhpur|IN|171;Gwalior|IN|171;Jingzhou|CN|193;Gqeberha|ZA|22;Tbilisi|GE|197;Voronezh|RU|253;Xinxiang|CN|193;Yichun|CN|193;Sokoto|NG|28;Jos|NG|28;Tangier|MA|13;Teni|IN|171;Xianyang|CN|193;Mexicali|MX|134;Pointe-Noire|CG|10;Maceió|BR|99;Campinas|BR|127;Sanya|CN|193;Rangpur|BD|156;Kirkuk|IQ|145;Ashgabat|TM|144;Shaoguan|CN|193;Howrah|IN|171;Raipur|IN|171;Changwon|KR|192;Longyan|CN|193;Köln|DE|227;Dublin|IE|234;Tiruchirappalli|IN|171;Yongzhou|CN|193;Brussels|BE|229;Zamboanga|PH|178;Ottawa|CA|135;Huzhou|CN|193;Xinyi|CN|193;Volgograd|RU|275;Khartoum North|SD|25;Edmonton|CA|79;Odesa|UA|243;Wuwei|CN|193;Jacksonville|US|113;Fort Worth|US|70;Yishui|CN|193;Hanzhong|CN|193;Hezhou|CN|193;Pest|HU|231;Kota|IN|171;Zhu Cheng City|CN|193;Shivaji Nagar|IN|171;Dongying|CN|193;Luzhou|CN|193;San Jose|US|97;Sholapur|IN|171;Marrakesh|MA|13;Guatemala City|GT|85;Meizhou|CN|193;Yueyang|CN|193;Laiwu|CN|193;Esenyurt|TR|239;Perm|RU|207;Zaria|NG|28;Kennedy|CO|64;Chiba|JP|200;Pingdingshan|CN|193;Ciudad Guayana|VE|67;Sargodha|PK|169;Austin|US|70;Managua|NI|100;Bengbu|CN|193;Salé|MA|13;Jerusalem|IL|167;Chandigarh|IN|171;Dnipro|UA|243;Feicheng|CN|193;Cebu City|PH|178;Sanhe|CN|193;Guli|CN|193;Tiruppur|IN|171;Guwahati|IN|171;Xiangtan|CN|193;Linfen|CN|193;Victoria|HK|163;Zhenjiang|CN|193;Enugu|NG|28;Rosario|AR|54;Sulţānah|SA|190;Huludao|CN|193;Hubballi|IN|171;Padang|ID|165;Kitakyushu|JP|200;Taiz|YE|140;Setagaya|JP|200;Kingston|JM|92;Jing’an|CN|193;Chihuahua|MX|71;Nay Pyi Taw|MM|206;Eskişehir|TR|239;Mysuru|IN|171;Chengde|CN|193;Salem|IN|171;São Luís|BR|81;Seongnam-si|KR|192;Cartagena|CO|64;Antipolo|PH|178;Columbus|US|113;Sialkot|PK|169;Charlotte|US|113;Laibin|CN|193;Warri|NG|28;Naples|IT|259;Xiaogan|CN|193;Wuchuan|CN|193;Campo Grande|BR|65;Ziyang|CN|193;Bobo-Dioulasso|BF|44;Bahawalpur|PK|169;Quzhou|CN|193;Blantyre|MW|9;Donetsk|UA|243;Abū Ghurayb|IQ|145;Qom|IR|198;Bishkek|KG|151;Krasnodar|RU|253;Natal|BR|81;Pingxiang|CN|193;Malang|ID|165;Cancún|MX|66;Indianapolis|US|91;Gurugram|IN|171;Bhubaneswar|IN|171;Zhoushan|CN|193;Qiqihar|CN|193;Mulenvos|AO|31;Sulaymaniyah|IQ|145;Marseille|FR|255;Bhiwandi|IN|171;Soshanguve|ZA|22;Laiyang|CN|193;Daye|CN|193;Teresina|BR|81;Ankang|CN|193;Jalandhar|IN|171;Rotterdam|NL|222;Langfang|CN|193;Lhasa|CN|193;Duque de Caxias|BR|127;Viana|AO|31;Jiaozuo|CN|193;Samarinda|ID|177;Benxi|CN|193;Rohini|IN|171;Wanxian|CN|193;Guang’an|CN|193;Johor Bahru|MY|173;Arifwala|PK|169;Pasig City|PH|178;Cheongju-si|KR|192;Kanayannur|IN|171;Tegucigalpa|HN|133;Bucheon-si|KR|192;Thanh Hóa|VN|148;Turin|IT|259;Al Ain City|AE|158;Libreville|GA|29;Saratov|RU|263;Ulan Bator|MN|202;Weihai|CN|193;Takeo|KH|185;Nova Iguaçu|BR|127;Cochabamba|BO|95;Ahvaz|IR|198;Vientiane|LA|204;São Bernardo do Campo|BR|127;Zhabei|CN|193;Shangyu|CN|193;Xinyu|CN|193;Pietermaritzburg|ZA|22;Yibin|CN|193;Naucalpan de Juárez|MX|107;Kampung Baru Subang|MY|173;Bouaké|CI|0;Taicang|CN|193;San Francisco|US|97;Sakai|JP|200;Jiaojiang|CN|193;Valencia|ES|248;Jinshan|CN|193;Chenzhou|CN|193;João Pessoa|BR|81;Bukavu|CD|32;Kraków|PL|276;Dandong|CN|193;Barcelona|VE|67;Bangui|CF|6;Hermosillo|MX|90;Bhayandar|IN|171;Culiacán|MX|105;Petaling Jaya|MY|173;Anqing|CN|193;Oran|DZ|3;Freetown|SL|19;San Pedro Sula|HN|133;Narela|IN|171;Xingtai|CN|193;Niigata|JP|200;Muscat|OM|179;Zarqa|JO|142;Çankaya|TR|239;Küçükçekmece|TR|239;Hamamatsu|JP|200;Kolwezi|CD|32;Vinh|VN|148;Thiruvananthapuram|IN|171;Zhaotong|CN|193;Hondlon|CN|193;Panzhihua|CN|193;Chuzhou|CN|193;Seattle|US|97;Port Said|EG|12;Cúcuta|CO|64;Homs|SY|155;Xuancheng|CN|193;Ibb|YE|140;Tasikmalaya|ID|165;Nampula|MZ|35;Bujumbura|BI|11;Tyumen|RU|207;Erzurum|TR|239;Anshun|CN|193;Dodoma|TZ|16;Rajshahi|BD|156;Dera Ismail Khan|PK|169;Sorocaba|BR|127;Wuzhou|CN|193;Ipoh|MY|173;Qinhuangdao|CN|193;Benghazi|LY|47;Uberlândia|BR|127;Alīgarh|IN|171;Shaoyang|CN|193;Malatya|TR|239;Winnipeg|CA|138;Ōta|JP|200;Andijon|UZ|196;Bareilly|IN|171;Buraydah|SA|190;Hegang|CN|193;Morelia|MX|107;Riga|LV|258;Zhuanghe|CN|193;Amsterdam|NL|222;Cagayan de Oro|PH|178;Ma’anshan|CN|193;Shah Alam|MY|173;Bağcılar|TR|239;Shizuishan|CN|193;Kumamoto|JP|200;Oyo|NG|28;Serang|ID|165;Torreón|MX|109;Deyang|CN|193;Abeokuta|NG|28;Al Ḩudaydah|YE|140;Yangquan|CN|193;Akure|NG|28;Denver|US|76;Osasco|BR|127;Kikolo|AO|31;Maianga|AO|31;São José dos Campos|BR|127;Álvaro Obregón|MX|107;Aihara|JP|200;Evaton|ZA|22;Valenzuela|PH|178;Muzaffarābād|PK|169;Okayama|JP|200;San Luis Potosí|MX|109;Aguascalientes|MX|107;General Santos|PH|178;Zhumadian|CN|193;Morādābād|IN|171;Sagamihara|JP|200;Qingshan|CN|193;Mississauga|CA|135;Lviv|UA|243;Namangan|UZ|196;Zaporizhzhya|UA|243;Zanzibar|TZ|16;Saltillo|MX|109;Latakia|SY|155;Subang Jaya|MY|173;Warangal|IN|171;Paranaque City|PH|178;Tolyatti|RU|260;Santo Domingo Oeste|DO|126;Santo Domingo Este|DO|126;Dhārāvi|IN|171;Battagram|PK|169;Suez|EG|12;Ribeirão Preto|BR|127;Agadir|MA|13;Edogawe|JP|200;Sarajevo|BA|262;Balikpapan|ID|177;Adachi|JP|200;Changning|CN|193;Bauchi|NG|28;Shizuoka|JP|200;Tunis|TN|48;Zhangjiakou|CN|193;Washington|US|113;Nashville|US|70;Fuxin|CN|193;Ta’if|SA|190;Huangshi|CN|193;Liaoyang|CN|193;Hlaingthaya|MM|206;Beira|MZ|35;Hongkou|CN|193;Zaragoza|ES|248;Sevilla|ES|248;Baise|CN|193;Pontianak|ID|186;Situbondo|ID|165;Agege|NG|28;Binzhou|CN|193;Oklahoma City|US|70;Yuncheng|CN|193;Dezhou|CN|193;Dushanbe|TJ|159;Cotonou|BJ|45;El Paso|US|76;Gorakhpur|IN|171;Guadalupe|MX|109;Wrocław|PL|276;Denpasar|ID|177;Guntur|IN|171;Katsina|NG|28;Sanmenxia|CN|193;E’zhou|CN|193;Madīnat an Naşr|EG|12;Camama|AO|31;Tabuk|SA|190;Kitwe|ZM|33;Bulawayo|ZW|21;Mudanjiang|CN|193;Aracaju|BR|99;Joinville|BR|127;Athens|GR|225;Zagreb|HR|277;Leshan|CN|193;Santo André|BR|127;Vancouver|CA|137;Rizhao|CN|193;Helsinki|FI|237;Cheonan|KR|192;Acapulco de Juárez|MX|107;Dongcun|CN|193;Banjarmasin|ID|177;Puducherry|IN|171;Suining|CN|193;Brampton|CA|135;Huangpu|CN|193;Golfe|AO|31;Soacha|CO|64;Boston|US|113;Tlalnepantla|MX|107;Jājmau|IN|171;Portland|US|97;Calumbo|AO|31;Tlaquepaque|MX|107;Frankfurt am Main|DE|227;Macau|MO|176;Palermo|IT|259;Izhevsk|RU|260;Colombo|LK|154;Maturín|VE|67;Amravati|IN|171;Lingyuan|CN|193;Detroit|US|77;Mingguang|CN|193;Osogbo|NG|28;Honchō|JP|200;Bikaner|IN|171;Jaboatão dos Guararapes|BR|122;Hoji ya Henda|AO|31;Las Vegas|US|97;New South Memphis|US|70;Hwaseong-si|KR|192;Gold Coast|AU|218;Łódź|PL|276;Jeonju|KR|192;Chongming|CN|193;Al Aḩmadī|KW|175;Cuenca|EC|86;Chisinau|MD|232;Likasi|CD|32;Jambi City|ID|165;Hebi|CN|193;Comilla|BD|156;Tshikapa|CD|32;Chunian|PK|169;Kochi|IN|171;Memphis|US|70;Jingmen|CN|193;Barnaul|RU|149;Piura|PE|96;Siping|CN|193;Bhilai|IN|171;Ndola|ZM|33;Contagem|BR|127;Ulyanovsk|RU|270;Djibouti|DJ|17;Glasgow|GB|246;Panshan|CN|193;Louisville|US|93;Irkutsk|RU|164;Ansan-si|KR|192;Al Mansurah|EG|12;Kermanshah|IR|198;Jiaozhou|CN|193;Düsseldorf|DE|227;Suizhou|CN|193;Villa Nueva|GT|85;Khabarovsk|RU|205;Cuiabá|BR|74;Arusha|TZ|16;Feira de Santana|BR|59;Las Piñas|PH|178;Chizhou|CN|193;Coyoacán|MX|107;Stuttgart|DE|227;Ya'an|CN|193;Cuttack|IN|171;Borivli|IN|171;Chiclayo|PE|96;Yaroslavl|RU|253;Gothenburg|SE|267;Kawaguchi|JP|200;Bukit Rahman Putra|MY|173;Jhang Sadr|PK|169;Ha'il|SA|190;Bhavnagar|IN|171;Benoni|ZA|22;Vladivostok|RU|205;Tuxtla|MX|106;Kryvyy Rih|UA|243;Sanming|CN|193;Islamabad|PK|169;Sāngli|IN|171;Jamnagar|IN|171;Lubango|AO|31;Pokhara|NP|170;Shuangyashan|CN|193;Borama|SO|38;Pallabi|BD|156;Luancheng|CN|193;Makhachkala|RU|253;Anyang-si|KR|192;Huambo|AO|31;Samarkand|UZ|191;Mengzi|CN|193;Kagoshima|JP|200;Mukalla|YE|140;Rasht|IR|198;Mar del Plata|AR|53;Essen|DE|227;Al Maḩallah al Kubrá|EG|12;Málaga|ES|248;Shekhupura|PK|169;Yingkou|CN|193;Zhangzhou|CN|193;Reynosa|MX|104;Thuận An|VN|162;Dortmund|DE|227;Suginami|JP|200;Baltimore|US|113;Itabashi|JP|200;New Kingston|JM|92;Pelentong|MY|173;Cimahi|ID|165;Londrina|BR|127;Bucaramanga|CO|64;Genoa|IT|259;Hachiōji|JP|200;Malacca|MY|173;Nha Trang|VN|162;Kerman|IR|198;Orūmīyeh|IR|198;Bahçelievler|TR|239;Tanta|EG|12;Jammu|IN|171;Iskandar Puteri|MY|173;Calamba|PH|178;Tlalpan|MX|107;Herāt|AF|168;Dongsheng|CN|193;Gujrat|PK|169;Tomsk|RU|201;Ümraniye|TR|239;Shihezi|CN|203;South Boston|US|113;Nakuru|KE|40;Hamilton|CA|135;Irbid|JO|142;Manchester|GB|246;Kota Bharu|MY|173;Surrey|CA|137;Meknes|MA|13;Puente Alto|CL|125;Nyala|SD|25;Xinmin|CN|193;Dresden|DE|227;Orenburg|RU|207;Albuquerque|US|76;Bokāro|IN|171;Asmara|ER|4;Sukkur|PK|169;Milwaukee|US|70;Chợ Lớn|VN|162;Wenchang|CN|193;Ile-Ife|NG|28;Gombe|NG|28;Hamhŭng|KP|187;Kemerovo|RU|181;Nasiriyah|IQ|145;Bloemfontein|ZA|22;Sheffield|GB|246;Santiago de Cuba|CU|89;Cuautitlán Izcalli|MX|107;Benguela|AO|31;Chuxiong|CN|193;Balbala|DJ|17;Huaihua|CN|193;Sishui|CN|193;Muntinlupa|PH|178;Bình Thạnh|VN|162;Zahedan|IR|198;Banqiao|TW|195;Nanded|IN|171;Kozhikode|IN|171;Ulanqab|CN|193;Cabinda|AO|31;Ajegunle|NG|28;Pristina|XK|226;Jiamusi|CN|193;Korla|CN|203;Kolhāpur|IN|171;Porto Velho|BR|120;San Miguel de Tucumán|AR|56;Kuantan|MY|173;Sevastopol|UA|264;Nellore|IN|171;Mirpur Model Thana|BD|156;Bremen|DE|227;Wanning|CN|193;Owerri|NG|28;Kota Kuala Muda|MY|173;Sungai Petani|MY|173;Xinzhou|CN|193;Kotō|JP|200;Kalaburagi|IN|171;Tucson|US|117;Selayang Baru Utara|MY|173;Vilnius|LT|274;Ajmer|IN|171;Pingdu|CN|193;Fresno|US|97;Mbeya|TZ|16;Juiz de Fora|BR|127;Calabar|NG|28;Oujda|MA|13;Novokuznetsk|RU|181;Ryazan’|RU|253;Ji’an|CN|193;Sahiwal|PK|169;Mersin|TR|239;Nilüfer|TR|239;Leeds|GB|246;Poznań|PL|276;Aqsu|CN|203;Ebute Ikorodu|NG|28;Ananindeua|BR|61;Tanggu|CN|193;Pasir Gudang|MY|173;Astrakhan|RU|224;Okara|PK|169;Nansana|UG|24;Kimhae|KR|192;Ar Raqqah|SY|155;Québec|CA|135;Cuauhtémoc|MX|107;Shangluo|CN|193;Himeji|JP|200;Ibagué|CO|64;Antwerp|BE|229;Assiut|EG|12;Hamadān|IR|198;Qionghai|CN|193;Aparecida de Goiânia|BR|127;Cangzhou|CN|193;Mohammadpur|BD|156;Surakarta|ID|165;Yuanping|CN|193;San Salvador|SV|80;Beihai|CN|193;Van|TR|239;Sacramento|US|97;Thủ Đức|VN|162;Üsküdar|TR|239;Penza|RU|253;Mazār-e Sharīf|AF|168;Kandahār|AF|168;Hengshui|CN|193;Dehradun|IN|171;Erode|IN|171;Lyon|FR|255;Salta|AR|55;Serra|BR|127;Esenler|TR|239;Daxing’anling|CN|193;Qui Nhon|VN|162;Al Fayyum|EG|12;Durgapur|IN|171;Utsunomiya|JP|200;Victoria de Durango|MX|109;Belford Roxo|BR|127;Lisbon|PT|244;Rahim Yar Khan|PK|169;Ulhasnagar|IN|171;Guangyuan|CN|193;Loni|IN|171;Siliguri|IN|171;Nuremberg|DE|227;Niterói|BR|127;Ujjain|IN|171;Hannover|DE|227;Edinburgh|GB|246;Macapá|BR|61;Xianning|CN|193;Toulouse|FR|255;Thembisa|ZA|22;Carrefour|HT|118;Matsuyama|JP|200;Bilimora|IN|171;Kasur|PK|169;Atlanta|US|113;Heroica Matamoros|MX|104;Makati City|PH|178;Buda|HU|231;Tonghua|CN|193;Mianzhu, Deyang, Sichuan|CN|193;Naberezhnyye Chelny|RU|253;Lipetsk|RU|253;Kikwit|CD|27;Florianópolis|BR|127;Banan|CN|193;Newcastle|AU|221;Tuen Mun|HK|163;Zhangye|CN|193;Kirov|RU|242;Kashgar|CN|203;Mukim Pulai|MY|173;Najrān|SA|190;Karol Bāgh|IN|171;Zhoukou|CN|193;Leipzig|DE|227;Pingliang|CN|193;Kalininskiy|RU|253;Duisburg|DE|227;Āsansol|IN|171;Arāk|IR|198;Maipú|CL|125;Homyel'|BY|251;Aktobe|KZ|143;Kota Kinabalu|MY|174;Talatona|AO|31;Kampung Larkin Lama|MY|173;Kota Damansara|MY|173;Jalalpur Pirwala|PK|169;Mangaluru|IN|171;Zhucheng|CN|193;Santa Marta|CO|64;Matsudo|JP|200;Hāthazāri|BD|156;Lapu-Lapu City|PH|178;Karagandy|KZ|141;Loudi|CN|193;Liverpool|GB|246;Ichikawa|JP|200;Sha Tin|HK|163;Dera Ghazi Khan|PK|169;Hecun|CN|193;Higashiosaka|JP|200;Pindi Bhattian|PK|169;Cheboksary|RU|253;Pohang|KR|192;Shanwei|CN|193;Montería|CO|64;Ruiru|KE|40;Valledupar|CO|64;Belagavi|IN|171;Ajman|AE|158;Jianshui|CN|193;Sancaktepe|TR|239;Port Sudan|SD|25;Toluca|MX|107;Ciudad López Mateos|MX|107;Al Khuşūş|EG|12;Jeju City|KR|192;Gdańsk|PL|276;Miami|US|113;Omaha|US|70;Nishinomiya|JP|200;Masina|CD|27;Sahāranpur|IN|171;Vellore|IN|171;Donghe|CN|193;Kurashiki|JP|200;Campos dos Goytacazes|BR|127;Angeles City|PH|178;Bhātpāra|IN|171;Jijiga|ET|2;Tula|RU|253;Najaf|IQ|145;Raleigh|US|113;Imus|PH|178;Xichang|CN|193;Malegaon|IN|171;Zaoyang|CN|193;São José do Rio Preto|BR|127;Caxias do Sul|BR|127;Karabağlar|TR|239;Okene|NG|28;Uijeongbu-si|KR|192;Bristol|GB|246;East London|ZA|22;Chéngguān Qū|CN|193;Yazd|IR|198;Hargeysa|SO|38;Ōita|JP|200;Jincheng|CN|193;Hongjiang|CN|193;Modīnagar|IN|171;Taoyuan|TW|195;Eldoret|KE|40;Kansas City|US|70;Yan’an|CN|193;Kaliningrad|RU|241;Skopje|MK|265;Kupang|ID|177;Vereeniging|ZA|22;The Hague|NL|222;Long Beach|US|97;Gaya|IN|171;Iloilo|PH|178;Shouguang|CN|193;Jingdezhen|CN|193;Murcia|ES|248;Mesa|US|117;Halifax|CA|88;Morogoro|TZ|16;Marikina City|PH|178;Kenitra|MA|13;Seeb|OM|179;Cilegon|ID|165;Mykolayiv|UA|243;Fukuyama|JP|200;Staten Island|US|113;Nanping|CN|193;Pereira|CO|64;Ciudad Apodaca|MX|109;São João de Meriti|BR|127;Ambattur|IN|171;Kanazawa|JP|200;Gonder|ET|2;Mandaluyong City|PH|178;Mixco|GT|85;Longshan|CN|193;Ikare|NG|28;Nova Vida|AO|31;Vũng Tàu|VN|162;Maracay|VE|67;Tamale|GH|1;Heyuan|CN|193;Dĩ An|VN|162;Kira|UG|24;Esna|EG|12;Huangshan|CN|193;Ḩamāh|SY|155;Jalgaon|IN|171;Kurnool|IN|171;Yola|NG|28;Tieling|CN|193;Rạch Giá|VN|162;Amagasaki|JP|200;Manado|ID|177;Santo Domingo de los Colorados|EC|86;Ţarţūs|SY|155;Mek'ele|ET|2;Nazrēt|ET|2;Colorado Springs|US|76;Huancayo|PE|96;Al Hillah|IQ|145;Mbandaka|CD|27;Malanje|AO|31;Namp’o|KP|187;Ciudad General Escobedo|MX|109;Bacolod City|PH|178;Virginia Beach|US|113;Wafangdian|CN|193;Mansilingan|PH|178;Kahama|TZ|16;Hsinchu|TW|195;Katsushika|JP|200;Bornova|TR|239;Rāmgundam|IN|171;Batman|TR|239;Yongji|CN|193;Lishui|CN|193;Udaipur|IN|171;Warder|ET|2;Wenshan City|CN|193;Eslamshahr|IR|198;Juba|SS|23;Muratpaşa|TR|239;Bắc Giang|VN|148;Şanlıurfa|TR|239;Kursk|RU|253;Maheshtala|IN|171;Nam Định|VN|148;Constantine|DZ|3;Patiāla|IN|171;Boksburg|ZA|22;Basuo|CN|193;Campina Grande|BR|81;Ensenada|MX|134;Elazığ|TR|239;Jundiaí|BR|127;Xochimilco|MX|107;Shyamnagar|IN|171;Dasmariñas|PH|178;Zhangjiajie|CN|193;Mataram|ID|177;Korhogo|CI|0;Piracicaba|BR|127;Fujisawa|JP|200;Bissau|GW|8;Zhongxiang|CN|193;Sandakan|MY|174;Mawlamyine|MM|206;Laval|CA|135;Palma|ES|248;Montes Claros|BR|127;Sunch’ŏn|KP|187;Sultangazi|TR|239;Uyo|NG|28;Bei’an|CN|193;Davangere|IN|171;Macheng|CN|193;Ado-Ekiti|NG|28;Manizales|CO|64;Masan|KR|192;Buôn Ma Thuột|VN|162;Stavropol|RU|253;Shuozhou|CN|193;Kashiwa|JP|200;Ogbomoso|NG|28;Tel Aviv|IL|167;Buenaventura|CO|64;Welkom|ZA|22;Sham Shui Po|HK|163;Machida|JP|200;Venustiano Carranza|MX|107;Zagazig|EG|12;Vinnytsya|UA|243;Ismailia|EG|12;Ningde|CN|193;Akola|IN|171;Kima Kieza|AO|31;Cusco|PE|96;Jiuquan|CN|193;Veracruz|MX|107;East Jerusalem|PS|161;Bryansk|RU|253;Maltepe|TR|239;Sumgayit|AZ|147;Tando Bago|PK|169;Kuala Terengganu|MY|173;Toyota|JP|200;Matadi|CD|27;Al Kharj|SA|190;Wong Tai Sin|HK|163;Minna|NG|28;Mandaluyong|PH|178;Xalapa de Enríquez|MX|107;Rajpur Sonarpur|IN|171;Bratislava|SK|228;Taman Petaling|MY|173;Shinagawa|JP|200;Al Ḩasakah|SY|155;Luxor|EG|12;London|CA|135;Awasa|ET|2;Chimoio|MZ|35;Tando Allahyar|PK|169;Daloa|CI|0;Barra da Tijuca|BR|127;Dingxi|CN|193;Bamenda|CM|18;Tver|RU|253;Thái Nguyên|VN|148;Boa Vista|BR|63;Rio Branco|BR|123;Oakland|US|97;Christchurch|NZ|290;Korba|IN|171;Takamatsu|JP|200;Kowloon City|HK|163;Santos|BR|127;Tirana|AL|269;Petrolina|BR|122;Mauá|BR|127;San Juan|PR|121;Alor Setar|MY|173;Tongchuan|CN|193;Pasay|PH|178;Nuevo Laredo|MX|104;Toyama|JP|200;Tétouan|MA|13;Zürich|CH|278;Beylikdüzü|TR|239;Việt Trì|VN|148;Azcapotzalco|MX|107;Tampa|US|113;Bunamwaya|UG|24;Magnitogorsk|RU|207;Tulsa|US|70;Jhānsi|IN|171;Tseung Kwan O|HK|163;Ciudad Bolívar|VE|67;Kampung Kangkar Teberau|MY|173;Koumassi|CI|0;San Nicolás de los Garza|MX|109;Guyuan|CN|193;Wandsbek|DE|227;Minneapolis|US|70;Jayapura|ID|166;Thoothukudi|IN|171;Ardabīl|IR|198;Ballari|IN|171;Chaoyang|CN|193;Gaza|PS|160;Maringá|BR|127;Yokosuka|JP|200;Kom Ombo|EG|12;Saltivka|UA|243;Nagasaki|JP|200;Gujangbagh|CN|203;Tonalá|MX|107;Zhijiang|CN|193;Panama City|PA|115;Uvira|CD|32;Hirakata|JP|200;Ivanovo|RU|253;Cumaná|VE|67;Newcastle|ZA|22;Gumi|KR|192;Brno|CZ|257;Jixi|CN|193;Diadema|BR|127;Kuching|MY|174;Gifu|JP|200;Caruaru|BR|122;Tongling|CN|193;Tarlac City|PH|178;Toyonaka|JP|200;Kassala|SD|25;Miyazaki|JP|200;Lekki|NG|28;Antofagasta|CL|125;Wah Cantt|PK|169;Bhāgalpur|IN|171;Agartala|IN|171;Dayrah|AE|158;West Jerusalem|IL|167;Bida|NG|28;Bunia|CD|32;Antakya|TR|239;Quận Mười|VN|162;Sunshine Coast|AU|218;Kisumu|KE|40;Luhansk|UA|243;Bengkulu|ID|165;Barinas|VE|67;Hancheng|CN|193;Vitória da Conquista|BR|59;Wichita|US|70;Al Hoceïma|MA|13;Szczecin|PL|276;Delmas|HT|118;Liaozhong|CN|193;Vila Velha|BR|127;Bologna|IT|259;Sejong|KR|192;Cazenga|AO|31;Samsun|TR|239;Tallinn|EE|268;Tanga|TZ|16;El Obeid|SD|25;Lobito|AO|31;Saurimo|AO|31;Bauru|BR|127;Bello|CO|64;Pasto|CO|64;Gaomi|CN|193;Santa Fe|AR|54;San-Pédro|CI|0;Gauriganj|IN|171;Makurdi|NG|28;Palu|ID|177;Takoradi|GH|1;Samut Prakan|TH|148;Arlington|US|70;Khamis Mushait|SA|190;Ambato|EC|86;Carapicuíba|BR|127;Ojo de Agua|MX|107;Windhoek|NA|49;Abomey-Calavi|BJ|45;Bochum|DE|227;Suita|JP|200;Benito Juárez|MX|107;Sector 3|RO|230;Chak Jhumra|PK|169;Kahramanmaraş|TR|239;Chongzuo|CN|193;Grajaú|BR|127;Okazaki|JP|200;Xico|MX|107;Iztacalco|MX|107;Kākināda|IN|171;Betim|BR|127;Las Palmas de Gran Canaria|ES|210;Cotabato|PH|178;Bawshar|OM|179;Latur|IN|171;Tanzhou|CN|193;Wellington|NZ|290;Mazatlán|MX|105;Nizhny Tagil|RU|207;Irapuato|MX|107;Ichinomiya|JP|200;Aswān|EG|12;Iaşi|RO|230;Krugersdorp|ZA|22;Pānihāti|IN|171;Shibganj|BD|156;Caucaia|BR|81;Iquitos|PE|96;Toyohashi|JP|200;Hechuan|CN|193;Pétionville|HT|118;Utrecht|NL|222;Rajamahendravaram|IN|171;Cariacica|BR|127;Yogyakarta|ID|165;Dhule|IN|171;Yanzhou|CN|193;Minato|JP|200;Puchong|MY|173;Ondo|NG|28;Pingyin|CN|193;Rohtak|IN|171;Bhawana|PK|169;Rustenburg|ZA|22;Bakersfield|US|97;Xuanhua|CN|193;Emalahleni|ZA|22;Bafoussam|CM|18;Thủ Dầu Một|VN|162;Takasaki|JP|200;Seremban|MY|173;Miguel Hidalgo|MX|107;Nagano|JP|200;Tawau|MY|174;Cardiff|GB|246;Dachang|CN|193;Đống Đa|VN|148;Chitungwiza|ZW|21;Fenghuang|CN|193;Umuahia|NG|28;Puerto La Cruz|VE|67;Uşak|TR|239;Bharatpur|NP|170;Itaquaquecetuba|BR|127;Natore|BD|156;6th of October City|EG|12;Leicester|GB|246;Desna|UA|243;Cascavel|BR|127;Sector 6|RO|230;Canberra|AU|221;Avellaneda|AR|53;Praia Grande|BR|127;Nara-shi|JP|200;Florence|IT|259;Ahilyanagar|IN|171;Kollam|IN|171;Huanggang|CN|193;Bradford|GB|246;Sukabumi|ID|165;Bilāspur|IN|171;Malabon|PH|178;Franca|BR|127;Cleveland|US|113;Iseyin|NG|28;Etobicoke|CA|135;Yenagoa|NG|28;Gboko|NG|28;Samba|AO|31;Olinda|BR|122;Pyeongtaek|KR|192;Petare|VE|67;Bến Cát|VN|162;Anqiu|CN|193;Alanya|TR|239;Larkana|PK|169;Al Qadarif|SD|25;Hrodna|BY|251;Cibinong|ID|165;Nawabshah|PK|169;New Orleans|US|70;Keelung|TW|195;Malmö|SE|267;Jizhou|CN|193;Manukau City|NZ|290;Maradi|NE|42;Burewala|PK|169;Ataşehir|TR|239;Blumenau|BR|127;Nanqiao|CN|193;Mingora|PK|169;Santarém|BR|124;Wuppertal|DE|227;Ulan-Ude|RU|164;Huocheng|CN|203;Ijebu Ode|NG|28;Maseru|LS|36;Bhilwara|IN|171;Aurora|US|76;Vitebsk|BY|251;Sultanbeyli|TR|239;Taraz|KZ|141;Yangsan|KR|192;Dniprovskyi|UA|243;San Jose del Monte|PH|178;Abū al-Kahṣīb|IQ|145;Gwangmyeong|KR|192;Zanjan|IR|198;Neiva|CO|64;Iwaki|JP|200;Vladimir|RU|253;Tete|MZ|35;Bacoor|PH|178;Uberaba|BR|127;Wakayama|JP|200;Brahmapur|IN|171;Fengshan|TW|195;Fatih|TR|239;Misratah|LY|47;Cuíto|AO|31;Benito Juarez|MX|107;Kyzylorda|KZ|189;Sinjhoro|PK|169;Kawagoe|JP|200;Takatsuki|JP|200;Muzaffarpur|IN|171;Tapachula|MX|106;Lhoka|CN|193;Villahermosa|MX|106;Setapak|MY|173;Mahilyow|BY|251;Bandar Abbas|IR|198;Pravyi Bereh|UA|243;Yunusobod|UZ|196;Ras Al Khaimah|AE|158;Cabimas|VE|67;Kendari|ID|177;Honolulu|US|296;Anaheim|US|97;Tarsus|TR|239;Pengze|CN|193;Bahir Dar|ET|2;Punāsa|IN|171;Al Maḩmūdīyah|IQ|145;Diepsloot|ZA|22;Xilinhot|CN|193;São José dos Pinhais|BR|127;Quelimane|MZ|35;Arkhangel’sk|RU|253;Muzaffarnagar|IN|171;Hulunbuir|CN|193;Dumai|ID|165;Shinjuku|JP|200;Sikasso|ML|5;Sanandaj|IR|198;Chita|RU|153;San Pedro|PH|178;Alicante|ES|248;Bimbo|CF|6;Kalemyo|MM|206;Belfast|GB|246;Long Bien|VN|148;Camagüey|CU|89;Bilbao|ES|248;Ambon|ID|166;Brest|BY|251;Ribeirão das Neves|BR|127;Chifeng|CN|193;Central Coast|AU|221;Corrientes|AR|54;Hŭngnam|KP|187;Avadi|IN|171;Yunlong|CN|193;Koshigaya|JP|200;Coventry|GB|246;Belgorod|RU|253;Toamasina|MG|279;Logan City|AU|218;Ōtsu|JP|200;Kosti|SD|25;Qitaihe|CN|193;Doha|QA|188;Kadapa|IN|171;Nakano|JP|200;Cirebon|ID|165;Turmero|VE|67;Tokorozawa|JP|200;Cabanatuan City|PH|178;Pizhou|CN|193;Darnytsya|UA|243;Dire Dawa|ET|2;Annaba|DZ|3;Nice|FR|255;Iligan|PH|178;Soledad|CO|64;Temara|MA|13;Paulista|BR|122;Obalende|NG|28;Kukatpally|IN|171;Laixi|CN|193;Dihok|IQ|145;Kaluga|RU|253;Bắc Từ Liêm|VN|162;Celaya|MX|107;Serekunda|GM|7;Kafrul|BD|156;Karşıyaka|TR|239;Ḩadā’iq al Qubbah|EG|12;Makiyivka|UA|243;West Raleigh|US|113;Cuernavaca|MX|107;Markham|CA|135;São Vicente|BR|127;Kaesŏng|KP|187;Tungi|BD|156;Krasnogvargeisky|RU|253;Randburg|ZA|22;Safi|MA|13;Simferopol|UA|264;Lublin|PL|276;Pelotas|BR|127;San José|CR|73;Orlando|US|113;Viña del Mar|CL|125;Qazvin|IR|198;Asahikawa|JP|200;Kāmārhāti|IN|171;Tepic|MX|105;Wŏnju|KR|192;Wad Medani|SD|25;Quận Mười Một|VN|162;Nukus|UZ|191;Konak|TR|239;Maebashi|JP|200;Kita|JP|200;Ciudad Victoria|MX|109;Soledad de Graciano Sánchez|MX|107;Kochi|JP|200;Bielefeld|DE|227;Blida|DZ|3;Kwai Chung|HK|163;Mandaue City|PH|178;Ganja|AZ|147;Khorramshahr|IR|198;Bonn|DE|227;Mathura|IN|171;Hechi|CN|193;Bydgoszcz|PL|276;Smolensk|RU|253;Oral|KZ|184;Khorramabad|IR|198;Soyapango|SV|80;Tongshan|CN|193;Guédiawaye|SN|15;Plovdiv|BG|266;Ciudad Obregón|MX|90;Wŏnsan|KP|187;Brent|GB|246;Pavlodar|KZ|141;Chānda|IN|171;Canoas|BR|127;Kōriyama|JP|200;Sochi|RU|253;Aksaray|TR|239;Vijayapura|IN|171;Chipata|ZM|33;Chongjin|KP|187;Yanji|CN|193;Roodepoort|ZA|22;Pucallpa|PE|96;Mogi das Cruzes|BR|127;Córdoba|ES|248;Birkenhead|GB|246;Nantes|FR|255;Ilesa|NG|28;Pekalongan|ID|165;Bhatara|BD|156;Espoo|FI|237;Kikuyu|KE|40;Kluang|MY|173;Lincang|CN|193;Nottingham|GB|246;Ramiros|AO|31;Al ‘Amārah|IQ|145;Volzhsky|RU|275;Vaughan|CA|135;Xingyi|CN|193;Shivamogga|IN|171;Alwar|IN|171;Uíge|AO|31;Taubaté|BR|127;Ixtapaluca|MX|107;Osh|KG|151;Portoviejo|EC|86;Villavicencio|CO|64;Man’gyŏngdae-ri|KP|187;Camaçari|BR|59;San Miguelito|PA|115;Shāhjānpur|IN|171;Lexington|US|113;Tantou|CN|193;Suzano|BR|127;Anápolis|BR|127;Kaech’ŏn|KP|187;Jūnāgadh|IN|171;Islington|GB|246;Hoa Lư|VN|148;Holguín|CU|89;Ust-Kamenogorsk|KZ|141;Tsuen Wan|HK|163;Zinder|NE|42;Saransk|RU|253;Al Diwaniyah|IQ|145;Varna|BG|266;Hafizabad|PK|169;Marne La Vallée|FR|255;Palangkaraya|ID|186;Damanhur|EG|12;Chiniot|PK|169;Popayán|CO|64;Reading|GB|246;Geita|TZ|16;Constanţa|RO|230;New Delhi|IN|171;Thessaloníki|GR|225;Thiès|SN|15;Naha|JP|200;Riverside|US|97;Baicheng|CN|193;Chimbote|PE|96;Bari|IT|259;Barueri|BR|127;Corpus Christi|US|70;Thrissur|IN|171;Cherepovets|RU|253;Eloy Alfaro|EC|86;Hamburg-Nord|DE|227;Al-Kut|IQ|145;Muar|MY|173;Şişli|TR|239;Lexington-Fayette|US|113;Maroua|CM|18;Kingston upon Hull|GB|246;Preston|GB|246;Lianshan|CN|193;Denizli|TR|239;Ikeja|NG|28;New Cairo|EG|12;Al Qāhirah al Jadīdah|EG|12;Vitória|BR|127;Palmira|CO|64;Vologda|RU|253;Iligan City|PH|178;Catania|IT|259;Jardim Angela|BR|127;Nizāmābād|IN|171;Cincinnati|US|113;Percut|ID|165;Coatzacoalcos|MX|107;Santa Ana|US|97;Sariwŏn-si|KP|187;Botshabelo|ZA|22;Butuan|PH|178;Shahrīār|IR|198;Qods|IR|198;Gia Lâm|VN|148;Kurgan|RU|207;Tampico|MX|109;Akowonjo|NG|28;Cabuyao|PH|178;Tabora|TZ|16;Kasugai|JP|200;An Nhơn|VN|162;Alimosho|NG|28;Ciudad Benito Juárez|MX|109;Münster|DE|227;Mannheim|DE|227;Karawang|ID|165;Akita|JP|200;Tumkūr|IN|171;Chinju|KR|192;Parbhani|IN|171;Hisar|IN|171;Iksan|KR|192;Fīrozābād|IN|171;Palmas|BR|52;Vladikavkaz|RU|253;Port-de-Paix|HT|118;Damietta|EG|12;Posadas|AR|54;Parauapebas|BR|61;Brakpan|ZA|22;Stockton|US|97;Juazeiro do Norte|BR|81;Yokkaichi|JP|200;Kulti|IN|171;Tláhuac|MX|107;Sapele|NG|28;Kashan|IR|198;Kāshān|IR|198;Pittsburgh|US|113;Armenia|CO|64;Santa Catarina|MX|109;Sumbawanga|TZ|16;Orël|RU|253;Akashi|JP|200;Hai Bà Trưng|VN|148;Kurume|JP|200;Graz|AT|273;Saint Paul|US|70;Saltivskyi|UA|243;Nghi Sơn|VN|148;Karnāl|IN|171;Changyi|CN|193;Ciudad del Este|PY|58;Rosetta|EG|12;Barddhamān|IN|171;Toshima|JP|200;Kediri|ID|165;Solwezi|ZM|33;Hamburg-Mitte|DE|227;Augsburg|DE|227;South Dublin|IE|234;Valladolid|ES|248;Miri|MY|174;Mardan|PK|169;Surgut|RU|207;Swansea|GB|246;San Pablo|PH|178;Newcastle upon Tyne|GB|246;Gundupālaiyam|IN|171;Várzea Grande|BR|74;Gatineau|CA|135;Yangshuo|CN|193;Biñan|PH|178;Malir Cantonment|PK|169;Winejok|SS|23;Batikent|TR|239;Mérida|VE|67;Port Moresby|PG|306;Yamoussoukro|CI|0;Ljubljana|SI|245;Porto-Novo|BJ|45;Gaborone|BW|20;Podgorica|ME|256;Georgetown|GY|87;Nassau|BS|112;Sucre|BO|95;Paramaribo|SR|116;Nicosia|CY|180;Port Louis|MU|286;Saint-Denis|RE|288;Dili|TL|157;Manama|BH|146;Praia|CV|211;Willemstad|CW|75;Bern|CH|278;Reykjavík|IS|213;Male|MV|285;Thimphu|BT|199;Bridgetown|BB|60;Nouméa|NC|301;Fort-de-France|MQ|103;Suva|FJ|292;Luxembourg|LU|247;Mbabane|SZ|37;Moroni|KM|282;Gitega|BI|11;Bandar Seri Begawan|BN|152;Cayenne|GF|68;Kuwait City|KW|175;Honiara|SB|294;Mamoudzou|YT|287;São Tomé|ST|46;Saint John’s|AG|51;Port of Spain|TT|119;Saipan|MP|308;Apia|WS|289;Tarawa|KI|310;Banjul|GM|7;Port-Vila|VU|291;Monaco|MC|252;Oranjestad|AW|57;George Town|KY|69;Saint Helier|JE|240;Gibraltar|GI|235;Papeete|PF|309;Douglas|IM|238;Majuro|MH|297;Kingstown|VC|132;Victoria|SC|284;Nuku‘alofa|TO|311;Andorra la Vella|AD|223;Castries|LC|130;Charlotte Amalie|VI|131;Roseau|DM|78;Saint Peter Port|GG|236;Nuuk|GL|114;Belmopan|BZ|62;Avarua|CK|307;Tórshavn|FO|212;Basseterre|KN|129;Pago Pago|AS|302;Basse-Terre|GP|84;Mariehamn|AX|250;Kralendijk|BQ|94;Road Town|VG|136;Saint George's|GD|83;Palikir|FM|305;Valletta|MT|249;Funafuti|TV|293;Saint-Pierre|PM|108;Gustavia|BL|128;Marigot|MF|102;Vaduz|LI|271;San Marino|SM|261;Cockburn Town|TC|82;Longyearbyen|SJ|139;Stanley|FK|216;The Valley|AI|50;Ciudad de la Paz|GQ|34;Philipsburg|SX|98;Flying Fish Cove|CX|280;Mata-Utu|WF|312;Yaren|NR|298;Hagåtña|GU|295;Hamilton|BM|209;Kingston|NF|300;Vatican City|VA|272;Jamestown|SH|215;Alofi|NU|299;West Island|CC|281;Adamstown|PN|304;Port-aux-Français|TF|283;Grytviken|GS|214;Plymouth|MS|111;Ngerulmud|PW|303;Washington DC|US|113;Frankfurt|DE|227;Zurich|CH|278;Geneva|CH|278;Bangalore|IN|171;Bombay|IN|171;Kiev|UA|243;Haifa|IL|167;Limassol|CY|180";
+
+const fmts = {};
+function parts(tz, t) {
+  const f = fmts[tz] ||= new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hourCycle: "h23", weekday: "short",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
+  });
+  const o = {};
+  for (const p of f.formatToParts(t)) o[p.type] = p.value;
+  return { y: +o.year, mo: +o.month, d: +o.day, h: +o.hour % 24, mi: +o.minute, wd: o.weekday };
+}
+const offsetMin = (tz, t) => {
+  const p = parts(tz, t);
+  return (Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi) - Math.floor(t / 60000) * 60000) / 60000;
+};
+function localToUtc(tz, y, mo, d) {
+  const base = Date.UTC(y, mo - 1, d);
+  let t = base - offsetMin(tz, base) * 60000;
+  return base - offsetMin(tz, t) * 60000;
+}
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const cityName = tz => tz.split("/").pop().replaceAll("_", " ");
+const band = h => h < 6 || h >= 22 ? "night" : h < 8 || h >= 18 ? "edge" : "work";
+function fmtTime(p, h24) {
+  const mm = String(p.mi).padStart(2, "0");
+  if (h24) return `${String(p.h).padStart(2, "0")}:${mm}`;
+  return `${p.h % 12 || 12}:${mm}<small>${p.h < 12 ? "am" : "pm"}</small>`;
+}
+function fmtDiff(min) {
+  if (min === 0) return "same";
+  const s = min > 0 ? "+" : "−", a = Math.abs(min), h = Math.floor(a / 60), m = a % 60;
+  return `${s}${h}${m === 30 ? "½" : m ? ":" + m : ""}h`;
+}
+
+// State
+let state = { cities: [], h24: true };
+try { Object.assign(state, JSON.parse(localStorage.getItem("ptb") || "{}")); } catch {}
+if (!state.cities.length) {
+  const here = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const picks = [here, "America/New_York", "Europe/London", "Asia/Tokyo"];
+  state.cities = [...new Set(picks)].map(tz => ({ tz, name: cityName(tz) }));
+}
+// A shared link (#c=...&d=...&h=...&f=...) is shown without overwriting the saved cities.
+let shared = false;
+const save = () => {
+  try {
+    const out = shared ? { ...JSON.parse(localStorage.getItem("ptb") || "{}"), h24: state.h24 } : state;
+    localStorage.setItem("ptb", JSON.stringify(out));
+  } catch {}
+};
+// Editing cities while viewing a shared link adopts it as your own list.
+function adopt() {
+  if (!shared) return;
+  shared = false;
+  try { history.replaceState(null, "", location.pathname + location.search); } catch {}
+}
+const validTz = tz => { try { new Intl.DateTimeFormat("en", { timeZone: tz }); return true; } catch { return false; } };
+function readLink() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  const cities = (q.get("c") || "").split(",").filter(Boolean).map(x => {
+    const [tz, name] = x.split("~");
+    return { tz, name: name || cityName(tz) };
+  }).filter(c => validTz(c.tz));
+  if (!cities.length) return null;
+  const [y, mo, d] = (q.get("d") || "").split("-").map(Number);
+  const s0 = parseInt(q.get("s")), e0 = parseInt(q.get("e")), h = parseInt(q.get("h"));
+  const span = s0 >= 0 && e0 > s0 ? { s: s0, e: e0 } : h >= 0 ? { s: h * 4, e: h * 4 + 4 } : null;
+  return { cities, day: y && mo && d ? { y, mo, d } : null, span, f: q.get("f") };
+}
+function linkFor() {
+  const q = new URLSearchParams();
+  q.set("c", state.cities.map(c => c.name === cityName(c.tz) ? c.tz : `${c.tz}~${c.name}`).join(","));
+  q.set("d", $("#date").value);
+  q.set("s", (sel.t0 - rows[0]) / QMS);
+  q.set("e", (sel.t1 - rows[0]) / QMS);
+  q.set("f", state.h24 ? "24" : "12");
+  return location.origin + location.pathname + location.search + "#" + q.toString().replaceAll("%2F", "/").replaceAll("%2C", ",");
+}
+// sel is the chosen interval as absolute instants; QMS is one 15-minute step.
+const QMS = HOUR / 4;
+let day, sel = null, rows = [], pendingSpan = null;
+
+function today() { const p = parts(state.cities[0].tz, Date.now()); return { y: p.y, mo: p.mo, d: p.d }; }
+function setDay(y, mo, d) {
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  day = { y: dt.getUTCFullYear(), mo: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+  $("#date").value = `${day.y}-${String(day.mo).padStart(2, "0")}-${String(day.d).padStart(2, "0")}`;
+}
+const $ = s => document.querySelector(s);
+
+function render(scrollToSel) {
+  const home = state.cities[0].tz;
+  const start = localToUtc(home, day.y, day.mo, day.d);
+  const end = localToUtc(home, day.y, day.mo, day.d + 1);
+  rows = Array.from({ length: Math.round((end - start) / HOUR) }, (_, i) => start + i * HOUR);
+  const now = Date.now();
+  const nowIdx = rows.findIndex(t => now >= t && now < t + HOUR);
+  if (pendingSpan) { sel = { t0: start + pendingSpan.s * QMS, t1: start + pendingSpan.e * QMS }; pendingSpan = null; }
+  if (!sel || sel.t0 < start || sel.t0 >= end) {
+    const r = nowIdx >= 0 ? nowIdx : Math.min(9, rows.length - 1);
+    sel = { t0: rows[r], t1: rows[r] + HOUR };
+  }
+  sel.t1 = Math.min(Math.max(sel.t1, sel.t0 + QMS), end);
+  const grid = $("#grid");
+  grid.style.setProperty("--n", state.cities.length);
+  grid.style.setProperty("--vw", $("#scroller").clientWidth + "px");
+
+  let html = `<div class="row head" id="head"></div><div class="hours" id="hours">`;
+  const n = state.cities.length, shift = state.cities.map(c => parts(c.tz, start).mi);
+  const hourLabel = p => state.h24 ? String(p.h) : `${p.h % 12 || 12}<small>${p.h < 12 ? "am" : "pm"}</small>`;
+  rows.forEach((rt, r) => {
+    const cells = state.cities.map((c, i) => {
+      if (shift[i]) return `<div class="cell gap"></div>`;
+      const p = parts(c.tz, rt), cls = `cell ${band(p.h)}${i ? "" : " sticky-l"}`;
+      // Midnight falls at this row's top (00:00) or partway through the 23:xx row.
+      const mid = p.h === 0 && p.mi === 0 ? ' newday" style="--mid:0%' : p.h === 23 && p.mi ? ` newday" style="--mid:${(60 - p.mi) / 60 * 100}%` : "";
+      if (p.h === 0) return `<div class="${cls}${mid} mid">${p.wd}<span>${MONTHS[p.mo - 1]} ${p.d}</span></div>`;
+      const mins = p.mi ? `:${String(p.mi).padStart(2, "0")}` : "";
+      const label = state.h24 ? `${p.h}${mins}` : `${p.h % 12 || 12}${mins}<small>${p.h < 12 ? "am" : "pm"}</small>`;
+      return `<div class="${cls}${mid}">${label}</div>`;
+    });
+    const aria = state.cities.map(c => `${c.name} ${fmtTime(parts(c.tz, rt), true)}`).join(", ");
+    html += `<button class="row${r === nowIdx ? " now" : ""}" data-row="${r}" aria-label="${aria}">${cells.join("")}</button>`;
+  });
+  state.cities.forEach((c, i) => {
+    if (!shift[i]) return;
+    let col = "";
+    for (let t = start, next = start + (60 - shift[i]) * 60000; t < end; t = next, next += HOUR) {
+      const stop = Math.min(next, end), mins = (stop - t) / 60000, p = parts(c.tz, t);
+      const day = p.h === 0 && p.mi === 0, cls = `cell ${band(p.h)}${day ? " newday mid" : ""}`;
+      const label = mins < 30 ? "" : day ? `${p.wd}<span>${MONTHS[p.mo - 1]} ${p.d}</span>` : hourLabel(p);
+      col += `<div class="${cls}" style="--w:${mins}">${label}</div>`;
+    }
+    html += `<div class="shiftcol" aria-hidden="true" style="left:${i * 100 / n}%;width:${100 / n}%">${col}</div>`;
+  });
+  html += `<div class="selband" id="band">
+    <button class="grip top" data-edge="t0"><span></span></button>
+    <button class="grip bot" data-edge="t1"><span></span></button></div></div>`;
+  grid.innerHTML = html;
+  $("#f24").setAttribute("aria-pressed", state.h24);
+  $("#f12").setAttribute("aria-pressed", !state.h24);
+  updateSel();
+  if (scrollToSel) {
+    const band = $("#band"), sc = $("#scroller");
+    sc.scrollTop = Math.max(0, band.offsetTop + $("#head").offsetHeight - sc.clientHeight / 2 + band.offsetHeight / 2);
+  }
+}
+const plain = p => fmtTime(p, state.h24).replace(/<\/?small>/g, "");
+// Exact (fractional) row height; rounding drifts the band by a pixel per row.
+const rowPx = () => $("#hours").getBoundingClientRect().height / rows.length;
+// Repaint only the band, row states and header, so a drag in progress keeps its pointer.
+function updateSel() {
+  const home = state.cities[0].tz, q = rowPx() / 4, band = $("#band");
+  band.style.top = (sel.t0 - rows[0]) / QMS * q + "px";
+  band.style.height = (sel.t1 - sel.t0) / QMS * q + "px";
+  band.querySelector(".top").setAttribute("aria-label", `Start ${plain(parts(home, sel.t0))}. Arrow keys move 15 minutes.`);
+  band.querySelector(".bot").setAttribute("aria-label", `End ${plain(parts(home, sel.t1))}. Arrow keys move 15 minutes.`);
+  document.querySelectorAll("#hours [data-row]").forEach(el => {
+    const t = rows[+el.dataset.row];
+    el.setAttribute("aria-pressed", t < sel.t1 && t + HOUR > sel.t0);
+  });
+  const h0 = parts(home, sel.t0), h1 = parts(home, sel.t1), mins = (sel.t1 - sel.t0) / 60000;
+  const dur = [Math.floor(mins / 60) && `${Math.floor(mins / 60)} h`, mins % 60 && `${mins % 60} min`].filter(Boolean).join(" ");
+  $("#summary").innerHTML = `<span class="range">${h0.wd} ${h0.d} ${MONTHS[h0.mo - 1]} · ${fmtTime(h0, state.h24)}–${h1.d !== h0.d ? h1.wd + " " : ""}${fmtTime(h1, state.h24)}</span>
+    <span class="dur">${dur}</span><span class="where">${state.cities[0].name} time</span>`;
+  const homeOff = offsetMin(home, sel.t0);
+  $("#head").innerHTML = state.cities.map((c, i) => {
+    const p = parts(c.tz, sel.t0), p1 = parts(c.tz, sel.t1), diff = offsetMin(c.tz, sel.t0) - homeOff;
+    return `<button class="hc${i ? "" : " sticky-l"}" data-city="${i}" aria-label="${c.name}: manage cities">
+      <span class="name">${i ? "" : HOME_ICON}${c.name}</span>
+      <span class="big">${fmtTime(p, state.h24)}</span>
+      <span class="till">to ${fmtTime(p1, state.h24)}</span>
+      <span class="meta">${p.wd} ${p.d} · ${i ? fmtDiff(diff) : "default"}</span></button>`;
+  }).join("");
+}
+
+// Events
+$("#grid").addEventListener("click", e => {
+  if (e.target.closest(".grip")) return;
+  const row = e.target.closest("[data-row]");
+  if (row) {
+    if (suppressClick) return;
+    const t = rows[+row.dataset.row]; sel = { t0: t, t1: t + HOUR }; updateSel(); return;
+  }
+  const hc = e.target.closest("[data-city]");
+  if (hc) openCities();
+});
+// Changing the day keeps the same time of day selected.
+function goDay(y, mo, d) {
+  const old = rows[0]; setDay(y, mo, d);
+  const shift = localToUtc(state.cities[0].tz, day.y, day.mo, day.d) - old;
+  sel = { t0: sel.t0 + shift, t1: sel.t1 + shift }; render();
+}
+$("#prev").onclick = () => goDay(day.y, day.mo, day.d - 1);
+$("#next").onclick = () => goDay(day.y, day.mo, day.d + 1);
+$("#date").onchange = e => { const [y, mo, d] = e.target.value.split("-").map(Number); if (y) goDay(y, mo, d); };
+
+// Interval selection: grips resize with any pointer; a mouse can also drag across rows.
+let drag = null, suppressClick = false;
+function yToT(clientY) {
+  const top = $("#hours").getBoundingClientRect().top;
+  const q = Math.round((clientY - top) / (rowPx() / 4));
+  return rows[0] + Math.max(0, Math.min(rows.length * 4, q)) * QMS;
+}
+function applyDrag() {
+  const t = yToT(drag.y);
+  if (drag.mode === "t0") sel.t0 = Math.min(t, sel.t1 - QMS);
+  else if (drag.mode === "t1") sel.t1 = Math.max(t, sel.t0 + QMS);
+  else {
+    if (Math.abs(drag.y - drag.y0) > 6) drag.moved = true;
+    if (!drag.moved) return;
+    sel = t === drag.anchor ? { t0: t, t1: t + QMS } : { t0: Math.min(t, drag.anchor), t1: Math.max(t, drag.anchor) };
+    sel.t1 = Math.min(sel.t1, rows[0] + rows.length * HOUR);
+  }
+  updateSel();
+}
+// Dragging near the top or bottom edge scrolls the table.
+function autoscroll() {
+  if (!drag) return;
+  const sc = $("#scroller"), r = sc.getBoundingClientRect(), top = r.top + $("#head").offsetHeight, zone = 48;
+  const v = drag.y < top + zone ? -(top + zone - drag.y) : drag.y > r.bottom - zone ? drag.y - (r.bottom - zone) : 0;
+  if (v) { sc.scrollTop += Math.max(-24, Math.min(24, v / 3)); applyDrag(); }
+  requestAnimationFrame(autoscroll);
+}
+const grid = $("#grid");
+grid.addEventListener("pointerdown", e => {
+  const grip = e.target.closest(".grip");
+  if (grip) drag = { mode: grip.dataset.edge };
+  else if (e.pointerType === "mouse" && e.button === 0 && e.target.closest("[data-row]"))
+    drag = { mode: "new", anchor: yToT(e.clientY), y0: e.clientY, moved: false };
+  else return;
+  drag.y = e.clientY;
+  e.preventDefault();
+  try { grid.setPointerCapture(e.pointerId); } catch {}
+  requestAnimationFrame(autoscroll);
+});
+grid.addEventListener("pointermove", e => { if (drag) { drag.y = e.clientY; applyDrag(); } });
+const endDrag = () => {
+  if (!drag) return;
+  if (drag.moved) { suppressClick = true; setTimeout(() => suppressClick = false, 0); }
+  drag = null;
+};
+grid.addEventListener("pointerup", endDrag);
+grid.addEventListener("pointercancel", endDrag);
+grid.addEventListener("keydown", e => {
+  const grip = e.target.closest(".grip");
+  if (!grip || !["ArrowUp", "ArrowDown"].includes(e.key)) return;
+  e.preventDefault();
+  const step = e.key === "ArrowUp" ? -QMS : QMS, end = rows[0] + rows.length * HOUR;
+  if (grip.dataset.edge === "t0") sel.t0 = Math.max(rows[0], Math.min(sel.t0 + step, sel.t1 - QMS));
+  else sel.t1 = Math.min(end, Math.max(sel.t1 + step, sel.t0 + QMS));
+  updateSel();
+});
+$("#now").onclick = () => { const t = today(); setDay(t.y, t.mo, t.d); sel = null; render(true); };
+$("#f12").onclick = () => { state.h24 = false; save(); render(); };
+$("#f24").onclick = () => { state.h24 = true; save(); render(); };
+
+function toast(msg) {
+  const el = $("#toast"); el.textContent = msg; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 1800);
+}
+$("#copy").onclick = async () => {
+  const txt = state.cities.map(c => {
+    const p = parts(c.tz, sel.t0), p1 = parts(c.tz, sel.t1);
+    const endDay = p1.d !== p.d ? `${p1.wd} ${p1.d} ${MONTHS[p1.mo - 1]}, ` : "";
+    return `${c.name}: ${p.wd} ${p.d} ${MONTHS[p.mo - 1]}, ${plain(p)}–${endDay}${plain(p1)}`;
+  }).join("\n");
+  try { await navigator.clipboard.writeText(txt); toast("Copied times for all cities"); }
+  catch { toast("This browser blocked clipboard access."); }
+};
+
+// Add city sheet
+const fold = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/gi, "l").toLowerCase();
+let regionName = cc => cc;
+try { const dn = new Intl.DisplayNames(["en"], { type: "region" }); regionName = cc => dn.of(cc) || cc; } catch {}
+let zones = [];
+try { zones = Intl.supportedValuesOf("timeZone"); } catch { zones = ["UTC"]; }
+const known = new Set(zones);
+const okZone = tz => known.has(tz) || validTz(tz);
+const cities = CITY_DATA.split(";").map(r => r.split("|")).map(([name, cc, i]) => ({ name, tz: CITY_ZONES[+i], where: regionName(cc) }))
+  .filter(c => okZone(c.tz));
+// One entry per accent-insensitive name and zone, so "Zurich" and "Zürich" don't both appear.
+const seenName = new Set();
+const catalog = [
+  ...cities,
+  ...zones.filter(z => z.includes("/")).map(tz => ({ name: cityName(tz), tz, where: "Time zone" })),
+  { name: "UTC", tz: "UTC", where: "Time zone" }
+].filter(c => {
+  const n = fold(c.name), k = n + "|" + c.tz, dup = seenName.has(k) || (c.where === "Time zone" && seenName.has(n));
+  seenName.add(k); seenName.add(n); return !dup;
+})
+ .map((c, i) => ({ ...c, i, key: fold(`${c.name} ${c.where}`), tzKey: fold(c.tz.replaceAll("_", " ")) }));
+// Rank: exact name, name prefix, word prefix, anywhere, country or zone; ties keep the biggest city first.
+function rank(c, q) {
+  const n = fold(c.name);
+  if (n === q) return 0;
+  if (n.startsWith(q)) return 1;
+  if ((" " + n).includes(" " + q)) return 2;
+  if (n.includes(q)) return 3;
+  if (c.key.includes(q) || c.tzKey.includes(q)) return 4;
+  return -1;
+}
+function search() {
+  const q = fold($("#q").value.trim());
+  const hits = (q ? catalog.map(c => [rank(c, q), c]).filter(([r]) => r >= 0).sort((a, b) => a[0] - b[0] || a[1].i - b[1].i).map(([, c]) => c) : catalog)
+    .slice(0, 60);
+  const now = Date.now();
+  $("#results").innerHTML = hits.length ? hits.map(c =>
+    `<li><button data-i="${c.i}"><span><span class="r-name">${c.name}</span><br><span class="r-tz">${c.where} · ${c.tz.replaceAll("_", " ")}</span></span>
+     <span class="r-time">${fmtTime(parts(c.tz, now), state.h24)}</span></button></li>`).join("")
+    : `<li class="empty">No city or time zone matches “${$("#q").value}”. Try the nearest large city.</li>`;
+}
+$("#add").onclick = () => { $("#q").value = ""; search(); $("#addDlg").showModal(); $("#q").focus(); };
+$("#addClose").onclick = () => $("#addDlg").close();
+$("#q").oninput = search;
+$("#results").onclick = e => {
+  const b = e.target.closest("[data-i]"); if (!b) return;
+  const c = catalog[+b.dataset.i];
+  if (state.cities.some(x => x.tz === c.tz && x.name === c.name)) { toast(`${c.name} is already on the grid`); return; }
+  adopt(); state.cities.push({ tz: c.tz, name: c.name }); save(); render();
+  $("#addDlg").close(); toast(`Added ${c.name}`);
+};
+
+// Cities sheet: set default / remove
+const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+function renderCities() {
+  const now = Date.now();
+  $("#cityList").innerHTML = state.cities.map((c, i) => `<li>
+    <div class="c-info"><div class="c-name">${c.name}</div>
+      <div class="c-meta">${fmtTime(parts(c.tz, now), state.h24).replace(/<\/?small>/g, "")} · ${c.tz.replaceAll("_", " ")}</div></div>
+    ${i ? `<button class="tag" data-default="${i}">Set default</button>`
+        : `<span class="tag is-default">${HOME_ICON}Default</span>`}
+    <button class="danger" data-remove="${i}" aria-label="Remove ${c.name}" ${state.cities.length < 2 ? "disabled" : ""}>${TRASH}</button>
+  </li>`).join("");
+}
+function openCities() { renderCities(); $("#cityDlg").showModal(); }
+$("#manage").onclick = openCities;
+$("#cityClose").onclick = () => $("#cityDlg").close();
+$("#addFromList").onclick = () => { $("#cityDlg").close(); $("#add").click(); };
+$("#cityList").onclick = e => {
+  const d = e.target.closest("[data-default]"), r = e.target.closest("[data-remove]");
+  if (d) {
+    adopt(); const [c] = state.cities.splice(+d.dataset.default, 1); state.cities.unshift(c); save();
+    const p = parts(c.tz, sel.t0); setDay(p.y, p.mo, p.d);
+    render(true); renderCities(); toast(`${c.name} is now the default`);
+  } else if (r && state.cities.length > 1) {
+    adopt(); const i = +r.dataset.remove, [c] = state.cities.splice(i, 1); save();
+    if (i === 0) { const t = today(); setDay(t.y, t.mo, t.d); sel = null; }
+    render(); renderCities(); toast(`Removed ${c.name}`);
+  }
+};
+for (const d of document.querySelectorAll("dialog")) d.addEventListener("click", e => { if (e.target === d) d.close(); });
+
+$("#share").onclick = async () => {
+  try { await navigator.clipboard.writeText(linkFor()); toast("Link copied"); }
+  catch { toast("This browser blocked clipboard access."); }
+};
+
+// Boot
+window.addEventListener("hashchange", () => location.reload());
+const link = readLink();
+if (link) {
+  shared = true;
+  state.cities = link.cities;
+  if (link.f) state.h24 = link.f !== "12";
+}
+const t0 = link?.day || today(); setDay(t0.y, t0.mo, t0.d);
+pendingSpan = link?.span || null;
+render(true);
+if (link) toast("Showing a shared view. Your saved cities are unchanged.");
+setInterval(() => { if (!drag && !document.querySelector("dialog[open]")) render(); }, 60000);
+</script>
