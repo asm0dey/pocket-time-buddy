@@ -4,6 +4,8 @@ from pathlib import Path
 root = Path(__file__).parent
 app = (root / "app.html").read_text()
 cut = app.index("</style>") + len("</style>")
+URL = "https://time.asm0dey.site/"  # og:image must be absolute
+DESC = "Compare times across cities and pick a meeting slot."
 
 page = f"""<!doctype html>
 <html lang="en">
@@ -16,6 +18,15 @@ page = f"""<!doctype html>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Time Buddy">
+<meta name="description" content="{DESC}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{URL}">
+<meta property="og:title" content="Pocket Time Buddy">
+<meta property="og:description" content="{DESC}">
+<meta property="og:image" content="{URL}og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root {{ padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); box-sizing: border-box; height: 100%; }}
 body {{ margin: 0; }}
